@@ -23,7 +23,7 @@ def Navbar():
             
             html.A([html.I(className="fas fa-database"), " Food Import Bill"], href="https://rnefib-production.up.railway.app/", id='FIB', className="nav-link"),
             
-            html.A([html.I(className="fas fa-database"), " Virtual Water"], href="https://rnevirtualwater-production.up.railway.app/", id='Precipitation1', className="nav-link"),
+            html.A([html.I(className="fas fa-database"), " Virtual Water"], href="https://rnevirtualwater-production.up.railway.app/", id='VW', className="nav-link"),
 
             html.A([html.I(className="fas fa-database"), " Precipitation"], href="https://rneprecipitation-production.up.railway.app/", id='Precipitation2', className="nav-link"),
             
@@ -33,7 +33,7 @@ def Navbar():
             
             html.A([html.I(className="fas fa-database"), " SDGs"], href="https://rnesdg-production.up.railway.app/", id='SDGs', className="nav-link"),
             
-            html.A([html.I(className="fas fa-database"), " Trade Concentration"], href="https://rneconcentration-production.up.railway.app/", id='Concentraton', className="nav-link"),
+            html.A([html.I(className="fas fa-database"), " Trade Concentration"], href="https://rneconcentrations-production.up.railway.app/", id='Concentraton', className="nav-link"),
             
         ],
     )
