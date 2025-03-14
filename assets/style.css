@@ -8,7 +8,7 @@ body {
     justify-content: space-around;
     align-items: center;
     padding: 1rem;
-    background-color: grey;
+    background-color: #024D6C;
     /* Background color */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }

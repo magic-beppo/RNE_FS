@@ -7,7 +7,7 @@ def Navbar():
         children=[
             dcc.Location(id='url', refresh=False),
             
-            html.A([html.I(className="fas fa-home"), " Home"], href="https://morocco-menu-production.up.railway.app/", id='home-link', className="nav-link"),
+            html.A([html.I(className="fas fa-home"), " Home"], href="https://rnemenu-production.up.railway.app/", id='home-link', className="nav-link"),
             
             html.A([html.I(className="fas fa-chart-line"), "Macro-WEO"], href="https://rnemacroimf-production.up.railway.app/", id='Macro1', className="nav-link"),
 
