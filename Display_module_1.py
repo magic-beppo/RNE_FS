@@ -170,7 +170,7 @@ app.layout = html.Div([
             dcc.Checklist(
                 id='year-checklist',
                 options=[{'label': year, 'value': year} for year in years if year < 2023],  # Exclude 2022 and 2023
-                value=[2015],  # Set default year to 2015
+                value=[2022],  # Set default year to 2015
                 inline=True,
                 labelStyle={'display': 'inline-block', 'marginRight': '10px'}  # Adjust the style property as needed
             ),
