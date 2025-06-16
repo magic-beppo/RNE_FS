@@ -27,6 +27,7 @@ ROUTES = {
     "Diversity":      ("fas fa-database",   "Crop Diversity",     "distributions",  "distributions"),
     "Fertilizer":     ("fas fa-database",   "Fertilizer",         "fertilizer",     "fertilizer"),
     "SDGs":           ("fas fa-database",   "SDGs",               "sdg",            "sdg"),
+    "Concentration":  ("fas fa-chart-bar",  "Concentration",      "concentration",  "concentration"),
 }
 
 def Navbar():

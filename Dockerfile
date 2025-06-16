@@ -1,19 +1,28 @@
 # Use an official Python runtime as the parent image
 FROM python:3.10.12-slim
 
-# Set the working directory in the container to /app
+# Prevent writing .pyc files and enable unbuffered logging
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Set the working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Install system dependencies and pipenv
+RUN apt-get update \
+    && apt-get install -y build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --upgrade pip pipenv
 
-# Install any needed packages specified in requirements.txt
-RUN pip install pipenv
-RUN pipenv requirements > requirements.txt
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+# Copy only Pipfile and Pipfile.lock and install dependencies inside container
+COPY Pipfile Pipfile.lock ./
+RUN pipenv install --system --deploy --ignore-pipfile
 
-# Make port 8050 available to the world outside this container
+# Copy the rest of the application source code
+COPY . .
+
+# Expose the port your app runs on
 EXPOSE 8050
 
-# Run app.py when the container launches
-CMD ["python", "Display_module_1.py"]
+# Use Gunicorn to serve the Flask/Dash app
+CMD ["gunicorn", "wsgi:application", "--bind", "0.0.0.0:8050", "--workers", "4", "--timeout", "120"]

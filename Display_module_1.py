@@ -50,6 +50,7 @@ external_stylesheets = [
 
 # Initialize the Dash app
 app = dash.Dash(__name__, assets_folder='assets')
+server = app.server  # ✅ This line is critical for gunicorn
 
 app.layout = html.Div([
     Navbar(),  # Include Navbar
