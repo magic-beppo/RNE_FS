@@ -139,7 +139,7 @@ app.layout = html.Div([
             id='year-slider',
             min=min(years),
             max=max(years),
-            value=2015,
+            value=2022,
             marks=slider_marks,
             step=None
         ),
