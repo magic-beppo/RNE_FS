@@ -225,9 +225,15 @@ class CSVUploader:
             
             try:
                 # Parse uploaded file
+# Parse uploaded file
                 content_type, content_string = contents.split(',')
                 decoded = base64.b64decode(content_string)
-                df_new = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+                # Try ISO-8859-1 encoding first (matches your original data)
+                try:
+                    df_new = pd.read_csv(io.StringIO(decoded.decode('ISO-8859-1')), dtype={'Item Code': str})
+                except:
+                    # Fallback to UTF-8 if ISO-8859-1 fails
+                    df_new = pd.read_csv(io.StringIO(decoded.decode('utf-8')), dtype={'Item Code': str})
                 
                 # Validation 1: Check required columns
                 missing_cols = [col for col in self.required_columns if col not in df_new.columns]
