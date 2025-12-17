@@ -264,6 +264,18 @@ class CSVUploader:
                 )
                 
                 return html.Div([
+                    # "Finished" banner at top
+                    html.Div([
+                        html.Span("🎉 FINISHED! ", style={'fontSize': '20px', 'fontWeight': 'bold', 'color': '#2e7d32'})
+                    ], style={
+                        'textAlign': 'center',
+                        'padding': '10px',
+                        'backgroundColor': '#c8e6c9',
+                        'borderRadius': '5px',
+                        'marginBottom': '15px',
+                        'border': '2px solid #4caf50'
+                    }),
+                    
                     html.Div([
                         html.Span("✅ ", style={'fontSize': '32px', 'marginRight': '10px'}),
                         html.Span("Upload Successful!", style={'fontSize': '24px', 'fontWeight': 'bold'})
