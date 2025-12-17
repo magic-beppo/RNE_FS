@@ -18,6 +18,9 @@ RUN apt-get update \
 COPY Pipfile Pipfile.lock ./
 RUN pipenv install --system --deploy --ignore-pipfile
 
+# ⬇️ NEW: Install docker package separately (bypasses Pipfile.lock conflict)
+RUN pip install docker
+
 # Copy the rest of the application source code
 COPY . .
 
