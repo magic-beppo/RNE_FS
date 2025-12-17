@@ -308,6 +308,9 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
 
     df_pivot = df_filtered.pivot_table(values='Value', index=['Area', 'Year'], columns='Item').reset_index()
 
+    # Plotly Express sorts facet values by default, so we need to match that order
+    facet_years = sorted(df_pivot['Year'].unique())
+
     fig = px.scatter(
         df_pivot,
         x=x_indicator,
@@ -317,46 +320,99 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
         hover_name='Area',
         labels={x_indicator: x_indicator, y_indicator: y_indicator, size_indicator: size_indicator},
         facet_col='Year',  # Separate plots for each year
-        facet_col_wrap=2  # Adjust the number of columns for wrapping
+        facet_col_wrap=2,  # Adjust the number of columns for wrapping
+        category_orders={'Year': facet_years}  # Ensure consistent ordering
     )
 
-    if len(selected_years) == 1 and "show" in trendline_option:
-        year = selected_years[0]
+    # Remove the facet titles (Year=2015, Year=2016, etc.)
+    fig.for_each_annotation(lambda a: a.update(text=''))
+    
+    for idx, year in enumerate(facet_years):
         df_year = df_pivot[df_pivot['Year'] == year]
-        X = df_year[x_indicator]
-        Y = df_year[y_indicator]
-
-        poly_fit, coeffs, r_squared = polynomial_fit(X, Y, regression_type)
-
-        X_sorted = np.sort(X)
-        Y_pred = poly_fit(X_sorted)
-
-        fig.add_trace(go.Scatter(
-            x=X_sorted,
-            y=Y_pred,
-            mode='lines',
-            line=dict(color='black', dash='dash'),
-            name=f'Polynomial (degree {regression_type}) {year}'
-        ))
-
-        # Create the equation string
-        equation_terms = []
-        for i, coeff in enumerate(coeffs):
-            power = len(coeffs) - i - 1
-            if power == 1:
-                term = f"{coeff:.4f}x"
-            elif power == 2:
-                term = f"{coeff:.4f}x<sup>2</sup>"
-            else:
-                term = f"{coeff:.4f}"
-            equation_terms.append(term)
-        equation = " + ".join(equation_terms)
-        equation = f"y = {equation} (R² = {r_squared:.4f})"
-
+        
+        # For faceted plots, each subplot has its own xaxis (x, x2, x3, etc.)
+        xaxis_name = 'x' if idx == 0 else f'x{idx + 1}'
+        yaxis_name = 'y' if idx == 0 else f'y{idx + 1}'
+        xref = f'{xaxis_name} domain'
+        yref = f'{yaxis_name} domain'
+        
+        # Add year label inside the plot at top-right
         fig.add_annotation(
-            x=0.5, y=0.9, xref='paper', yref='paper',
-            text=equation, showarrow=False, font=dict(size=20, color="black")
+            x=0.98, y=0.98,
+            xref=xref,
+            yref=yref,
+            text=f"Year: {year}",
+            showarrow=False,
+            font=dict(size=12, color="black", weight="bold"),
+            xanchor='right',
+            yanchor='top',
+            bgcolor='rgba(255, 255, 255, 0.9)',
+            bordercolor='black',
+            borderwidth=1,
+            borderpad=4
         )
+        
+        # Skip if no data for this year
+        if df_year.empty:
+            continue
+        
+        # Add regression lines if checkbox is checked
+        if "show" in trendline_option:
+            # Drop NaN values for regression
+            df_year_clean = df_year[[x_indicator, y_indicator]].dropna()
+            
+            if len(df_year_clean) < 2:  # Need at least 2 points for regression
+                continue
+                
+            X = df_year_clean[x_indicator]
+            Y = df_year_clean[y_indicator]
+
+            poly_fit, coeffs, r_squared = polynomial_fit(X, Y, regression_type)
+
+            X_sorted = np.sort(X)
+            Y_pred = poly_fit(X_sorted)
+
+            fig.add_trace(go.Scatter(
+                x=X_sorted,
+                y=Y_pred,
+                mode='lines',
+                line=dict(color='black', dash='dash', width=2),
+                name=f'Regression {year}',
+                showlegend=False,
+                xaxis=xaxis_name,
+                yaxis=yaxis_name,
+                hovertemplate=f'Regression line<br>Year: {year}<extra></extra>'
+            ))
+
+            # Create the equation string
+            equation_terms = []
+            for i, coeff in enumerate(coeffs):
+                power = len(coeffs) - i - 1
+                if power == 1:
+                    term = f"{coeff:.4f}x"
+                elif power == 2:
+                    term = f"{coeff:.4f}x<sup>2</sup>"
+                else:
+                    term = f"{coeff:.4f}"
+                equation_terms.append(term)
+            equation = " + ".join(equation_terms)
+            equation = f"y = {equation}<br>R² = {r_squared:.4f}"
+
+            # Add regression equation at bottom-left
+            fig.add_annotation(
+                x=0.02, y=0.02,
+                xref=xref,
+                yref=yref,
+                text=equation, 
+                showarrow=False, 
+                font=dict(size=10, color="black"),
+                xanchor='left',
+                yanchor='bottom',
+                bgcolor='rgba(255, 255, 255, 0.8)',
+                bordercolor='black',
+                borderwidth=1,
+                borderpad=4
+            )
 
     fig.update_layout(
         title={
