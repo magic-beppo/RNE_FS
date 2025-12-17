@@ -185,9 +185,9 @@ class CSVUploader:
             file_size = file_stat.st_size / 1024  # KB
             mod_time = datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
             
-            # Get row count
+            # Get row count - use same encoding as original file
             try:
-                df = pd.read_csv(self.csv_path)
+                df = pd.read_csv(self.csv_path, encoding='ISO-8859-1')
                 row_count = len(df)
                 col_count = len(df.columns)
             except:
@@ -224,16 +224,31 @@ class CSVUploader:
                 ], style={'color': 'red', 'fontWeight': 'bold'})
             
             try:
-                # Parse uploaded file
-# Parse uploaded file
+                # Parse uploaded file with proper encoding
                 content_type, content_string = contents.split(',')
                 decoded = base64.b64decode(content_string)
+                
                 # Try ISO-8859-1 encoding first (matches your original data)
                 try:
-                    df_new = pd.read_csv(io.StringIO(decoded.decode('ISO-8859-1')), dtype={'Item Code': str})
-                except:
+                    df_new = pd.read_csv(
+                        io.StringIO(decoded.decode('ISO-8859-1')), 
+                        dtype={'Item Code': str}
+                    )
+                except Exception as e1:
                     # Fallback to UTF-8 if ISO-8859-1 fails
-                    df_new = pd.read_csv(io.StringIO(decoded.decode('utf-8')), dtype={'Item Code': str})
+                    try:
+                        df_new = pd.read_csv(
+                            io.StringIO(decoded.decode('utf-8')), 
+                            dtype={'Item Code': str}
+                        )
+                    except Exception as e2:
+                        return html.Div([
+                            f"❌ Error reading CSV file. Tried ISO-8859-1 and UTF-8 encoding.",
+                            html.Br(),
+                            f"ISO-8859-1 error: {str(e1)}",
+                            html.Br(),
+                            f"UTF-8 error: {str(e2)}"
+                        ], style={'color': 'red', 'fontWeight': 'bold'})
                 
                 # Validation 1: Check required columns
                 missing_cols = [col for col in self.required_columns if col not in df_new.columns]
@@ -241,7 +256,9 @@ class CSVUploader:
                     return html.Div([
                         f"❌ Validation Error: Missing required columns: {', '.join(missing_cols)}",
                         html.Br(),
-                        f"Expected columns: {', '.join(self.required_columns)}"
+                        f"Expected columns: {', '.join(self.required_columns)}",
+                        html.Br(),
+                        f"Found columns: {', '.join(df_new.columns.tolist())}"
                     ], style={'color': 'red', 'fontWeight': 'bold'})
                 
                 # Validation 2: Check data types and basic integrity
@@ -254,7 +271,7 @@ class CSVUploader:
                 # Create backup of existing file
                 backup_success = self._create_backup()
                 
-                # Save new file
+                # Save new file with UTF-8 encoding (standard for web)
                 df_new.to_csv(self.csv_path, index=False, encoding='utf-8')
                 
                 # Trigger container restart (only in Docker)
@@ -281,48 +298,41 @@ class CSVUploader:
                 
             except Exception as e:
                 return html.Div([
-                    f"❌ Error: {str(e)}"
+                    f"❌ Unexpected Error: {str(e)}"
                 ], style={'color': 'red', 'fontWeight': 'bold'})
     
-def _validate_dataframe(self, df):
-    """
-    Validate the uploaded dataframe structure and data types.
+    def _validate_dataframe(self, df):
+        """
+        Validate the uploaded dataframe structure and data types.
+        
+        Returns:
+            dict: {'valid': bool, 'message': str}
+        """
+        # Check if dataframe is empty
+        if len(df) == 0:
+            return {'valid': False, 'message': 'CSV file is empty'}
+        
+        # Check for excessive missing values (relaxed to 98%)
+        missing_pct = (df.isnull().sum() / len(df) * 100).max()
+        if missing_pct > 98:
+            return {'valid': False, 'message': f'Too many missing values ({missing_pct:.1f}%)'}
+        
+        # Validate specific columns if they exist
+        if 'Value' in df.columns:
+            # Check if Value column can be converted to numeric
+            try:
+                pd.to_numeric(df['Value'], errors='coerce')
+            except:
+                return {'valid': False, 'message': 'Value column contains invalid data'}
+        
+        if 'Year' in df.columns:
+            # Check if Year is reasonable (allow formats like "2020" or "2020-2021")
+            years = df['Year'].dropna().astype(str)
+            if len(years) > 0 and not years.str.match(r'^\d{4}(-\d{4})?$').all():
+                return {'valid': False, 'message': 'Year column contains invalid format'}
+        
+        return {'valid': True, 'message': 'Validation passed'}
     
-    Returns:
-        dict: {'valid': bool, 'message': str}
-    """
-    # Check if dataframe is empty
-    if len(df) == 0:
-        return {'valid': False, 'message': 'CSV file is empty'}
-    
-    # DEBUG: Show what we're getting
-    print(f"DEBUG - DataFrame shape: {df.shape}")
-    print(f"DEBUG - Columns: {df.columns.tolist()}")
-    print(f"DEBUG - First few rows:\n{df.head()}")
-    print(f"DEBUG - Missing values per column:\n{df.isnull().sum()}")
-    
-    # Check for excessive missing values
-    missing_pct = (df.isnull().sum() / len(df) * 100).max()
-    print(f"DEBUG - Max missing percentage: {missing_pct:.1f}%")
-    
-    # TEMPORARILY increase threshold to 98% to let it through
-    if missing_pct > 98:
-        return {'valid': False, 'message': f'Too many missing values ({missing_pct:.1f}%)'}
-    
-    # Rest of validation...
-    if 'Value' in df.columns:
-        try:
-            pd.to_numeric(df['Value'], errors='coerce')
-        except:
-            return {'valid': False, 'message': 'Value column contains invalid data'}
-    
-    if 'Year' in df.columns:
-        years = df['Year'].dropna().astype(str)
-        if not years.str.match(r'^\d{4}(-\d{4})?$').all():
-            return {'valid': False, 'message': 'Year column contains invalid format'}
-    
-    return {'valid': True, 'message': 'Validation passed'}
-   
     def _create_backup(self):
         """
         Create a timestamped backup of the current CSV file.
