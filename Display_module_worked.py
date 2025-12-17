@@ -7,6 +7,9 @@ import plotly.express as px
 import plotly.graph_objs as go
 import os
 import sys
+
+# ⬇️ NEW: Import CSV uploader component
+from csv_uploader import CSVUploader
   
   
 # Get the absolute path to the 'Home' directory
@@ -52,7 +55,18 @@ external_stylesheets = [
 app = dash.Dash(__name__, assets_folder='assets')
 server = app.server  # ✅ This line is critical for gunicorn
 
+# ⬇️ NEW: Initialize CSV uploader component
+# backup_dir auto-detects: './backups' locally, '/app/backups' in Docker
+uploader = CSVUploader(
+    app=app,
+    csv_path=PathData,
+    required_columns=['Area', 'Area Code', 'Year', 'Item', 'Item Code', 'Value', 'Unit'],
+    password='ChangeThisPassword123!'  # ⚠️ IMPORTANT: Change this to your own secure password!
+)
+
+# ⬇️ MODIFIED: Added uploader.get_layout() at the top
 app.layout = html.Div([
+    uploader.get_layout(),  # ⬅️ NEW: CSV upload interface
     Navbar(),  # Include Navbar
     html.H1("1. Food Security by Indicator and Peer: Mashreq Countries"),
     html.Div([

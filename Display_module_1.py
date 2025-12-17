@@ -8,14 +8,11 @@ import plotly.graph_objs as go
 import os
 import sys
 
-# ⬇️ NEW: Import CSV uploader component
+# Import CSV uploader component
 from csv_uploader import CSVUploader
-  
   
 # Get the absolute path to the 'Home' directory
 home_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Home'))
-
-# Ensure the 'Home' directory is added to the Python path
 sys.path.insert(0, home_path)
 
 # Import Navbar from Home directory
@@ -30,15 +27,52 @@ df = pd.read_csv(PathData, encoding='ISO-8859-1', dtype={'Item Code': str})
 # Ensure 'Value' column is numeric
 df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
 
-# Adjust year values by taking the midpoint of each period
-df['Year'] = df['Year'].apply(lambda x: int(x.split('-')[0]) + 1)
+# ═══════════════════════════════════════════════════════════════════════
+# IMPROVED YEAR HANDLING - Handles both 3-year averages and single years
+# ═══════════════════════════════════════════════════════════════════════
 
-years = df['Year'].unique().tolist()
+def process_year(year_str):
+    """
+    Convert year string to display year.
+    - For ranges like "2000-2002": return midpoint (2001)
+    - For single years like "2000": return as-is (2000)
+    """
+    year_str = str(year_str)
+    if '-' in year_str:
+        start_year = int(year_str.split('-')[0])
+        return start_year + 1  # Midpoint
+    else:
+        return int(year_str)
+
+# Store original year for labels
+df['Year_Original'] = df['Year'].astype(str)
+
+# Create display year (for filtering and sliders)
+df['Year'] = df['Year_Original'].apply(process_year)
+
+# Create indicator to know if it's a 3-year average
+df['Is_Average'] = df['Year_Original'].str.contains('-', regex=False)
+
+# ═══════════════════════════════════════════════════════════════════════
+
+years = sorted(df['Year'].unique().tolist())
 countries = df['Area'].unique().tolist()
 indicators = df['Item'].unique().tolist()
 
-# Create a dictionary to format slider labels
-slider_marks = {year: f"{year}/{str(year + 1)[-2:]}" for year in years}
+def create_slider_label(year):
+    """Create slider label showing if it's a 3-year average or single year"""
+    year_data = df[df['Year'] == year]['Year_Original'].unique()
+    
+    if len(year_data) == 1:
+        original = year_data[0]
+        if '-' in original:
+            return f"{year} (avg)"
+        else:
+            return str(year)
+    else:
+        return str(year)
+
+slider_marks = {year: create_slider_label(year) for year in years}
 
 # Default selected Area Codes
 default_area_codes_first_chart = [59, 103, 112, 121, 212, 276]
@@ -48,26 +82,26 @@ default_countries_second_chart = df[df['Area Code'].isin(default_area_codes_seco
 
 external_stylesheets = [
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css',
-    '/assets/style.css'  # Use relative path
+    '/assets/style.css'
 ]
 
 # Initialize the Dash app
 app = dash.Dash(__name__, assets_folder='assets')
-server = app.server  # ✅ This line is critical for gunicorn
+server = app.server
 
-# ⬇️ NEW: Initialize CSV uploader component
-# backup_dir auto-detects: './backups' locally, '/app/backups' in Docker
+# Initialize CSV uploader component
 uploader = CSVUploader(
     app=app,
     csv_path=PathData,
     required_columns=['Area', 'Area Code', 'Year', 'Item', 'Item Code', 'Value', 'Unit'],
-    password='ChangeThisPassword123!'  # ⚠️ IMPORTANT: Change this to your own secure password!
+    password='ChangeThisPassword123!'
 )
 
-# ⬇️ MODIFIED: Added uploader.get_layout() at the top
+# App layout
 app.layout = html.Div([
-    uploader.get_layout(),  # ⬅️ NEW: CSV upload interface
-    Navbar(),  # Include Navbar
+    uploader.get_layout(),
+    Navbar(),
+    
     html.H1("1. Food Security by Indicator and Peer: Mashreq Countries"),
     html.Div([
         html.Label("Select one or several food security indicators:", style={'fontSize': '15px'}),
@@ -86,7 +120,7 @@ app.layout = html.Div([
                 options=[{'label': country, 'value': country} for country in countries],
                 value=default_countries_first_chart,
                 inline=True,
-                labelStyle={'display': 'inline-block', 'marginRight': '10px'}  # Corrected style property
+                labelStyle={'display': 'inline-block', 'marginRight': '10px'}
             ),
         ], id='country-checklist-container'),
         html.Div(style={'height': '20px'}),
@@ -97,7 +131,7 @@ app.layout = html.Div([
         ),
         dcc.Interval(
             id='interval-component',
-            interval=1000,  # 1 second
+            interval=1000,
             n_intervals=0,
             disabled=True
         ),
@@ -105,7 +139,7 @@ app.layout = html.Div([
             id='year-slider',
             min=min(years),
             max=max(years),
-            value=2015,  # Default year set to 2015
+            value=2015,
             marks=slider_marks,
             step=None
         ),
@@ -125,7 +159,7 @@ app.layout = html.Div([
                     value='Prevalence of undernourishment (percent) (3-year average)',
                     placeholder='Select Indicator'
                 ),
-                style={'width': '900px'}  # Adjust the width to 900px
+                style={'width': '900px'}
             ),
         ], style={'padding': '0 10px'}),
         html.Div([
@@ -135,7 +169,7 @@ app.layout = html.Div([
                 options=[{'label': country, 'value': country} for country in countries],
                 value=default_countries_second_chart,
                 inline=True,
-                labelStyle={'display': 'inline-block', 'marginRight': '10px'}  # Corrected style property
+                labelStyle={'display': 'inline-block', 'marginRight': '10px'}
             ),
         ], style={'padding': '0 10px'}),
     ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
@@ -145,7 +179,6 @@ app.layout = html.Div([
 
     html.H1("3. Create your own Food Security Analysis"),
 
-    # First row with y-axis, x-axis, and bubble size selectors
     html.Div([
         html.Div([
             html.Label("Select variable for the y-axis", style={'fontSize': '15px'}),
@@ -178,16 +211,15 @@ app.layout = html.Div([
         ], style={'flex': '1', 'padding': '0 10px'}),
     ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
 
-    # Second row with year checklist and country radio buttons
     html.Div([
         html.Div([
             html.Label("Select year(s):", style={'fontSize': '15px'}),
             dcc.Checklist(
                 id='year-checklist',
-                options=[{'label': year, 'value': year} for year in years if year < 2023],  # Exclude 2022 and 2023
-                value=[2022],  # Set default year to 2015
+                options=[{'label': year, 'value': year} for year in years if year < 2023],
+                value=[2022],
                 inline=True,
-                labelStyle={'display': 'inline-block', 'marginRight': '10px'}  # Adjust the style property as needed
+                labelStyle={'display': 'inline-block', 'marginRight': '10px'}
             ),
         ], style={'flex': '1', 'padding': '0 10px'}),
 
@@ -196,14 +228,13 @@ app.layout = html.Div([
             dcc.Checklist(
                 id='country-radio',
                 options=[{'label': country, 'value': country} for country in countries],
-                value=default_countries_first_chart,  # Set default countries to the same as in the first section
+                value=default_countries_first_chart,
                 inline=True,
-                labelStyle={'display': 'inline-block', 'marginRight': '10px'}  # Adjust the style property as needed
+                labelStyle={'display': 'inline-block', 'marginRight': '10px'}
             ),
         ], style={'flex': '1', 'padding': '0 10px'}),
     ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
 
-    # Third row with regression type and trendline checkbox
     html.Div([
         html.Div([
             html.Label("Regression Line Type", style={'fontSize': '15px'}),
@@ -225,25 +256,21 @@ app.layout = html.Div([
                 options=[{'label': 'Show Regression Line', 'value': 'show'}],
                 value=['show']
             ),
-    ], style={'flex': '1', 'padding': '0 10px'}),
-], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
+        ], style={'flex': '1', 'padding': '0 10px'}),
+    ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
 
-html.Div(style={'height': '20px'}),
-
-dcc.Graph(id='scatter-plot'),
-
+    html.Div(style={'height': '20px'}),
+    dcc.Graph(id='scatter-plot'),
 ])
 
 
 def create_bullet_chart(values, labels, title, unit):
-    max_value = max(values) if values else 1  # Ensure max_value is not zero
-
-    # Generate a color array long enough to handle any number of countries
+    max_value = max(values) if values else 1
     colors = px.colors.qualitative.Plotly * (len(labels) // len(px.colors.qualitative.Plotly) + 1)
     
     fig = go.Figure()
-
     num_labels = len(labels)
+    
     for i, value in enumerate(values):
         fig.add_trace(go.Indicator(
             mode="number+gauge",
@@ -261,8 +288,8 @@ def create_bullet_chart(values, labels, title, unit):
         grid={'rows': 1, 'columns': num_labels, 'pattern': "independent"},
         margin=dict(t=50, b=0, l=0, r=0)
     )
-
     return fig
+
 
 @app.callback(
     Output('gauge-charts', 'children'),
@@ -285,7 +312,10 @@ def update_gauge_charts(selected_indicators, selected_year, selected_countries):
                 unit = value['Unit'].values[0]
             else:
                 values.append(0)
-        fig = create_bullet_chart(values, selected_countries, f'{indicator} in {selected_year}/{str(selected_year + 1)[-2:]}', unit)
+        
+        year_original = df[df['Year'] == selected_year]['Year_Original'].iloc[0] if len(df[df['Year'] == selected_year]) > 0 else str(selected_year)
+        
+        fig = create_bullet_chart(values, selected_countries, f'{indicator} in {year_original}', unit)
         
         chart = dcc.Graph(
             figure=fig,
@@ -295,6 +325,7 @@ def update_gauge_charts(selected_indicators, selected_year, selected_countries):
     
     return charts
 
+
 def polynomial_fit(x, y, degree):
     coeffs = np.polyfit(x, y, degree)
     poly_func = np.poly1d(coeffs)
@@ -303,6 +334,37 @@ def polynomial_fit(x, y, degree):
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
     return poly_func, coeffs, r_squared
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# FUZZY YEAR MATCHING FOR SCATTER PLOTS
+# ═══════════════════════════════════════════════════════════════════════
+
+def get_fuzzy_year_data(df, year, indicator, country, tolerance=1):
+    """
+    Get data for a specific year, country, and indicator.
+    If exact year not found, try years within ±tolerance.
+    """
+    # Try exact year first
+    result = df[(df['Year'] == year) & (df['Area'] == country) & (df['Item'] == indicator)]
+    
+    if not result.empty:
+        return result['Value'].iloc[0], year
+    
+    # Try nearby years
+    for offset in range(1, tolerance + 1):
+        # Try year + offset
+        result = df[(df['Year'] == year + offset) & (df['Area'] == country) & (df['Item'] == indicator)]
+        if not result.empty:
+            return result['Value'].iloc[0], year + offset
+        
+        # Try year - offset
+        result = df[(df['Year'] == year - offset) & (df['Area'] == country) & (df['Item'] == indicator)]
+        if not result.empty:
+            return result['Value'].iloc[0], year - offset
+    
+    return None, None
+
 
 @app.callback(
     Output('scatter-plot', 'figure'),
@@ -315,14 +377,50 @@ def polynomial_fit(x, y, degree):
      Input('country-radio', 'value')]
 )
 def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years, trendline_option, regression_type, selected_countries):
-    df_filtered = df[(df['Year'].isin(selected_years)) & (df['Area'].isin(selected_countries))]
-
-    if df_filtered.empty:
-        return go.Figure()
-
-    df_pivot = df_filtered.pivot_table(values='Value', index=['Area', 'Year'], columns='Item').reset_index()
-
-    # Plotly Express sorts facet values by default, so we need to match that order
+    
+    # Build data manually with fuzzy year matching
+    data_rows = []
+    
+    for year in selected_years:
+        for country in selected_countries:
+            # Get values for each indicator (with fuzzy matching)
+            x_val, x_year = get_fuzzy_year_data(df, year, x_indicator, country, tolerance=1)
+            y_val, y_year = get_fuzzy_year_data(df, year, y_indicator, country, tolerance=1)
+            size_val, size_year = get_fuzzy_year_data(df, year, size_indicator, country, tolerance=1)
+            
+            # Only include if we have ALL three values
+            if x_val is not None and y_val is not None and size_val is not None:
+                # Get original year format for display
+                year_original_list = df[df['Year'] == year]['Year_Original'].unique()
+                year_original = year_original_list[0] if len(year_original_list) > 0 else str(year)
+                
+                data_rows.append({
+                    'Area': country,
+                    'Year': year,
+                    'Year_Original': year_original,
+                    x_indicator: x_val,
+                    y_indicator: y_val,
+                    size_indicator: size_val
+                })
+    
+    if not data_rows:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available for the selected years and countries.<br><br>Try selecting different years (especially recent ones like 2020-2022).",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="red"),
+            align="center"
+        )
+        fig.update_layout(
+            title="No Data Available",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            height=700
+        )
+        return fig
+    
+    df_pivot = pd.DataFrame(data_rows)
     facet_years = sorted(df_pivot['Year'].unique())
 
     fig = px.scatter(
@@ -333,29 +431,28 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
         color='Area',
         hover_name='Area',
         labels={x_indicator: x_indicator, y_indicator: y_indicator, size_indicator: size_indicator},
-        facet_col='Year',  # Separate plots for each year
-        facet_col_wrap=2,  # Adjust the number of columns for wrapping
-        category_orders={'Year': facet_years}  # Ensure consistent ordering
+        facet_col='Year',
+        facet_col_wrap=2,
+        category_orders={'Year': facet_years}
     )
 
-    # Remove the facet titles (Year=2015, Year=2016, etc.)
     fig.for_each_annotation(lambda a: a.update(text=''))
     
     for idx, year in enumerate(facet_years):
         df_year = df_pivot[df_pivot['Year'] == year]
         
-        # For faceted plots, each subplot has its own xaxis (x, x2, x3, etc.)
         xaxis_name = 'x' if idx == 0 else f'x{idx + 1}'
         yaxis_name = 'y' if idx == 0 else f'y{idx + 1}'
         xref = f'{xaxis_name} domain'
         yref = f'{yaxis_name} domain'
         
-        # Add year label inside the plot at top-right
+        year_original = df_year['Year_Original'].iloc[0] if len(df_year) > 0 else str(year)
+        
         fig.add_annotation(
             x=0.98, y=0.98,
             xref=xref,
             yref=yref,
-            text=f"Year: {year}",
+            text=f"Year: {year_original}",
             showarrow=False,
             font=dict(size=12, color="black", weight="bold"),
             xanchor='right',
@@ -366,25 +463,22 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
             borderpad=4
         )
         
-        # Skip if no data for this year
         if df_year.empty:
             continue
         
-        # Add regression lines if checkbox is checked
         if "show" in trendline_option:
-            # Drop NaN values for regression
             df_year_clean = df_year[[x_indicator, y_indicator]].dropna()
             
-            if len(df_year_clean) < 2:  # Need at least 2 points for regression
+            if len(df_year_clean) < 2:
                 continue
                 
             X = df_year_clean[x_indicator]
             Y = df_year_clean[y_indicator]
 
-            poly_fit, coeffs, r_squared = polynomial_fit(X, Y, regression_type)
+            poly_fit_func, coeffs, r_squared = polynomial_fit(X, Y, regression_type)
 
             X_sorted = np.sort(X)
-            Y_pred = poly_fit(X_sorted)
+            Y_pred = poly_fit_func(X_sorted)
 
             fig.add_trace(go.Scatter(
                 x=X_sorted,
@@ -398,7 +492,6 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
                 hovertemplate=f'Regression line<br>Year: {year}<extra></extra>'
             ))
 
-            # Create the equation string
             equation_terms = []
             for i, coeff in enumerate(coeffs):
                 power = len(coeffs) - i - 1
@@ -412,7 +505,6 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
             equation = " + ".join(equation_terms)
             equation = f"y = {equation}<br>R² = {r_squared:.4f}"
 
-            # Add regression equation at bottom-left
             fig.add_annotation(
                 x=0.02, y=0.02,
                 xref=xref,
@@ -441,6 +533,7 @@ def update_scatter_plot(x_indicator, y_indicator, size_indicator, selected_years
 
     return fig
 
+
 @app.callback(
     [Output('year-slider', 'value'),
      Output('interval-component', 'disabled')],
@@ -452,9 +545,10 @@ def animate_year_slider(animate, n_intervals, year_value):
     if 'animate' in animate:
         next_year = year_value + 1 if year_value < 2021 else 2021
         if next_year == 2021:
-            return next_year, True  # Stop animation when it reaches the final year
+            return next_year, True
         return next_year, False
     return year_value, True
+
 
 @app.callback(
     Output('line-plot', 'figure'),
@@ -467,43 +561,41 @@ def update_line_plot(selected_indicator, selected_countries):
 
     fig = go.Figure()
 
-    # Extract the y-axis title from the selected indicator
     yaxis_title = selected_indicator
     if '(' in selected_indicator and ')' in selected_indicator:
         yaxis_title = selected_indicator.split('(')[1].split(')')[0]
 
     for country in selected_countries:
-        df_filtered = df[(df['Area'] == country) & (df['Item'] == selected_indicator)]
+        df_filtered = df[(df['Area'] == country) & (df['Item'] == selected_indicator)].copy()
 
-        # Skip if no data available
         if df_filtered.empty:
             continue
 
-        # Ensure Year is a string before applying split
-        df_filtered['Year'] = df_filtered['Year'].astype(str).apply(lambda x: int(x.split('-')[0]) + 1)
-        df_filtered = df_filtered.groupby('Year', as_index=False)['Value'].mean()
+        df_filtered = df_filtered.groupby('Year', as_index=False).agg({
+            'Value': 'mean',
+            'Year_Original': 'first'
+        })
 
-        # Drop rows with NaN values
         df_filtered = df_filtered.dropna(subset=['Value'])
 
-        # Skip if no data available after dropping NaNs
         if df_filtered.empty:
             continue
 
-        # Determine if the country is a regional aggregate
         area_code = df[df['Area'] == country]['Area Code'].iloc[0]
-        line_width = 4 if area_code > 300 else 2  # Thicker lines for regional aggregates
+        line_width = 4 if area_code > 300 else 2
+
+        hover_text = [f"{country} - {year_orig}" for year_orig in df_filtered['Year_Original']]
 
         fig.add_trace(go.Scatter(
             x=df_filtered['Year'],
             y=df_filtered['Value'],
             mode='lines+markers',
             name=country,
-            text=[f"{country} - {year}" for year in df_filtered['Year']],
+            text=hover_text,
+            hovertemplate='%{text}<br>Value: %{y:.2f}<extra></extra>',
             line=dict(width=line_width)
         ))
 
-    # Modify the x-axis title based on the selected indicator
     xaxis_title = "Year"
     if "(3-year average)" in selected_indicator:
         xaxis_title = "3-year average around the indicated year"
@@ -512,7 +604,6 @@ def update_line_plot(selected_indicator, selected_countries):
         xaxis_title = ""
         selected_indicator = selected_indicator.replace(" (annual value)", "")
 
-    # Remove the remaining string in parenthesis from the chart title
     if '(' in selected_indicator and ')' in selected_indicator:
         selected_indicator = selected_indicator.split('(')[0].strip()
 
@@ -526,8 +617,7 @@ def update_line_plot(selected_indicator, selected_countries):
         height=600,
         xaxis={
             'tickmode': 'linear',
-            'tick0': df_filtered['Year'].min(),
-            'dtick': 1,  # Display labels for every year
+            'dtick': 1,
             'tickfont': {'size': 14}
         },
         yaxis={
@@ -539,4 +629,4 @@ def update_line_plot(selected_indicator, selected_countries):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port = 8050)
+    app.run(host='0.0.0.0', port=8050)
