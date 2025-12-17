@@ -21,9 +21,6 @@ RUN pipenv install --system --deploy --ignore-pipfile
 # Copy the rest of the application source code
 COPY . .
 
-# Create backup directory for CSV backups
-RUN mkdir -p /app/backups
-
 # Expose the port your app runs on
 EXPOSE 8050
 

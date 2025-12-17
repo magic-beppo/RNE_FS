@@ -1,14 +1,13 @@
 services:
   fs-indicators:
+
     build:
       context: .
       dockerfile: Dockerfile
+
     networks:
       - traefik
-    # ⬇️ ADD THESE VOLUME MOUNTS
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # Allow container to restart itself
-      - backup-data:/app/backups  # Persist backups across container restarts
+
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.fs-indicators.tls=true"
@@ -17,13 +16,8 @@ services:
       - "traefik.http.routers.service=fs-indicators-service"
       - "traefik.http.services.fs-indicators-service.loadbalancer.server.port=8050"
       - "traefik.docker.network=traefik"
-      - "traefik.http.routers.fs-indicators.rule=Host(`fs-indicators.fsobs.org`)"
-    # ⬇️ OPTIONAL: Set restart policy
-    restart: unless-stopped
 
-# ⬇️ ADD VOLUMES SECTION
-volumes:
-  backup-data:
+      - "traefik.http.routers.fs-indicators.rule=Host(`fs-indicators.fsobs.org`)"
 
 networks:
   traefik:
