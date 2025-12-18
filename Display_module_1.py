@@ -94,7 +94,7 @@ uploader = CSVUploader(
     app=app,
     csv_path=PathData,
     required_columns=['Area', 'Area Code', 'Year', 'Item', 'Item Code', 'Value', 'Unit'],
-    password='ChangeThisPassword123!'
+    password='Jordan2025'
 )
 
 # App layout
